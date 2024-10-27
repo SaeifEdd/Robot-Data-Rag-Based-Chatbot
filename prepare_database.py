@@ -22,12 +22,36 @@ def load_data(file_path):
     return data
 
 
-def split_data(data):
-    documents = [Document(page_content=' '.join(item)) for item in data]
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=100)
-    all_splits = text_splitter.split_documents(documents)
+def lists_to_documents(data: list):
+    documents = []
 
-    return all_splits
+    # Map each list to a document with appropriate metadata
+    for i, log_list in enumerate(data):
+        # Determine document type based on content patterns
+        doc_type = "general"
+        if any("Device ID:" in entry for entry in log_list):
+            doc_type = "device_status"
+        elif any("Error" in entry for entry in log_list):
+            doc_type = "errors"
+        elif any("Warning" in entry for entry in log_list):
+            doc_type = "warnings"
+        elif any("Connection Status" in entry for entry in log_list):
+            doc_type = "connection"
+
+        # Join the list entries with newlines to create the document content
+        content = "\n".join(log_list)
+
+        # Create document with metadata
+        doc = Document(
+            page_content=content,
+            metadata={
+                "type": doc_type,
+                "list_index": i
+            }
+        )
+        documents.append(doc)
+
+    return documents
 
 
 def create_database(splits):
@@ -42,10 +66,11 @@ def clear_database():
         shutil.rmtree(chroma_path)
 # test
 
+
 if __name__ == "__main__":
     clear_database()
-    data  = load_data(file_path)
-    splits = split_data(data)
+    data = load_data(file_path)
+    splits = lists_to_documents(data)
 
     if not os.path.exists('chroma_path'):
         create_database(splits)
