@@ -3,12 +3,9 @@ import argparse
 import shutil
 import os
 from langchain_core.documents import Document
-#from langchain_community.document_loaders import JSONLoader
-#from langchain_text_splitters import RecursiveJsonSplitter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import ChatOllama
-#from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from embeddings import get_embeddings
 
@@ -21,9 +18,20 @@ def load_data(file_path):
         data = json.load(file)
     return data
 
+# split chunks less than 512 tokens
+def split_text_into_chunks(text, tokens_per_chunk=512, chunk_overlap=20):
+    tokens = text.split()  # Split into words as a placeholder
+    chunks = []
 
-def lists_to_documents(data: list):
+    # Split the tokens into chunks while considering overlap
+    for i in range(0, len(tokens), tokens_per_chunk - chunk_overlap):
+        chunk = tokens[i:i + tokens_per_chunk]
+        chunks.append(" ".join(chunk))  # Recombine tokens into a string
+    return chunks
+
+def lists_to_documents(data: list, tokens_per_chunk=512, chunk_overlap=20):
     documents = []
+
 
     # Map each list to a document with appropriate metadata
     for i, log_list in enumerate(data):
@@ -40,16 +48,18 @@ def lists_to_documents(data: list):
 
         # Join the list entries with newlines to create the document content
         content = "\n".join(log_list)
-
+        chunked_content = split_text_into_chunks(content, tokens_per_chunk, chunk_overlap)
         # Create document with metadata
-        doc = Document(
-            page_content=content,
-            metadata={
-                "type": doc_type,
-                "list_index": i
-            }
-        )
-        documents.append(doc)
+        # Create Document objects for each chunk
+        for chunk in chunked_content:
+            doc = Document(
+                page_content=content,
+                metadata={
+                    "type": doc_type,
+                    "list_index": i,
+                }
+            )
+            documents.append(doc)
 
     return documents
 
